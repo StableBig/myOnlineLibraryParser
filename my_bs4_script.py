@@ -48,7 +48,6 @@ def download_image(url, folder='images/'):
     else:
         raise Exception(f'Ошибка при скачивании изображения: HTTP {response.status_code}')
 
-
 def get_book_comments(book_id):
     """Получение комментариев к книге по её ID."""
     url = f'https://tululu.org/b{book_id}/'
@@ -57,7 +56,6 @@ def get_book_comments(book_id):
 
     comments = []
     comment_tags = soup.find_all('div', class_='texts')
-
     for tag in comment_tags:
         comment = tag.find('span', class_='black')
         if comment:
@@ -65,6 +63,17 @@ def get_book_comments(book_id):
 
     return comments
 
+
+def get_book_genre(book_id):
+    """Получение жанров книги по её ID."""
+    url = f'https://tululu.org/b{book_id}/'
+    response = requests.get(url)
+    soup = BeautifulSoup(response.text, 'html.parser')
+
+    genre_tags = soup.find('span', class_='d_book').find_all('a')
+    genres = [tag.get_text().strip() for tag in genre_tags]
+
+    return genres
 
 # Пример использования
 for book_id in range(1, 11):
@@ -74,11 +83,13 @@ for book_id in range(1, 11):
             filename = f"{title} - {author}"
             book_url = f'http://tululu.org/txt.php?id={book_id}'
             cover_image_url = f'https://tululu.org/shots/{book_id}.jpg'  # Предполагаемый URL обложки
+            genres = get_book_genre(book_id)
 
             txt_filepath = download_txt(book_url, filename)
             img_filepath = download_image(cover_image_url)
             comments = get_book_comments(book_id)
             print(f"Книга '{title}' и её обложка скачаны: {txt_filepath}, {img_filepath}")
+            print(f"Жанры книги: {', '.join(genres)}")
             print(f"Комментарии к книге: {comments}")
         else:
             print(f"Книга с ID {book_id} не найдена или ошибка в её данных.")

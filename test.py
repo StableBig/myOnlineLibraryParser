@@ -4,27 +4,32 @@ from pathvalidate import sanitize_filename
 import os
 from urllib.parse import urlsplit, unquote
 
-def get_book_comments(book_id):
-    """Получение комментариев к книге по её ID."""
+def get_book_genre(book_id):
+    """Получение жанров книги по её ID."""
     url = f'https://tululu.org/b{book_id}/'
     response = requests.get(url)
     soup = BeautifulSoup(response.text, 'html.parser')
 
-    comments = []
-    comment_tags = soup.find_all('div', class_='texts')
+    genre_tags = soup.find('span', class_='d_book').find_all('a')
+    genres = [tag.get_text().strip() for tag in genre_tags]
 
-    for tag in comment_tags:
-        comment = tag.find('span', class_='black')
-        if comment:
-            comments.append(comment.get_text().strip())
+    return genres
 
-    return comments
-
-
-# Пример использования
+# Дополнение основного цикла для включения информации о жанрах
 for book_id in range(1, 11):
     try:
-        comments = get_book_comments(book_id)
-        print(f"Комментарии к книге с ID {book_id}: {comments}")
+        title, author = get_book_title_and_author(book_id)
+        if title and author:
+            filename = f"{title} - {author}"
+            book_url = f'http://tululu.org/txt.php?id={book_id}'
+            cover_image_url = f'https://tululu.org/shots/{book_id}.jpg'
+            genres = get_book_genre(book_id)
+
+            txt_filepath = download_txt(book_url, filename)
+            img_filepath = download_image(cover_image_url)
+            print(f"Книга '{title}' и её обложка скачаны: {txt_filepath}, {img_filepath}")
+            print(f"Жанры книги: {', '.join(genres)}")
+        else:
+            print(f"Книга с ID {book_id} не найдена или ошибка в её данных.")
     except Exception as e:
-        print(f"Ошибка при обработке комментариев книги с ID {book_id}: {e}")
+        print(f"Ошибка при обработке книги с ID {book_id}: {e}")
