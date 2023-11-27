@@ -2,6 +2,7 @@ import requests
 from bs4 import BeautifulSoup
 from pathvalidate import sanitize_filename
 import os
+from urllib.parse import urlsplit, unquote
 
 def get_book_title_and_author(book_id):
     """Получение названия и автора книги по её ID."""
@@ -32,16 +33,32 @@ def download_txt(url, filename, folder='books/'):
     else:
         raise Exception(f'Ошибка при скачивании файла: HTTP {response.status_code}')
 
-# Пример использования
+def download_image(url, folder='images/'):
+    """Скачивание изображения и сохранение его в указанной папке."""
+    image_filename = unquote(urlsplit(url).path.split('/')[-1])
+    safe_filename = sanitize_filename(image_filename)
+    os.makedirs(folder, exist_ok=True)
+    file_path = os.path.join(folder, safe_filename)
+
+    response = requests.get(url)
+    if response.status_code == 200:
+        with open(file_path, 'wb') as file:
+            file.write(response.content)
+        return file_path
+    else:
+        raise Exception(f'Ошибка при скачивании изображения: HTTP {response.status_code}')
+
 for book_id in range(1, 11):
     try:
         title, author = get_book_title_and_author(book_id)
         if title and author:
             filename = f"{title} - {author}"
             book_url = f'http://tululu.org/txt.php?id={book_id}'
+            cover_image_url = f'https://tululu.org/shots/{book_id}.jpg'  # Предполагаемый URL обложки
 
-            filepath = download_txt(book_url, filename)
-            print(f"Книга '{title}' скачана и сохранена в: {filepath}")
+            txt_filepath = download_txt(book_url, filename)
+            img_filepath = download_image(cover_image_url)
+            print(f"Книга '{title}' и её обложка скачаны: {txt_filepath}, {img_filepath}")
         else:
             print(f"Книга с ID {book_id} не найдена или ошибка в её данных.")
     except Exception as e:
