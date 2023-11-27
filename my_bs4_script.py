@@ -3,11 +3,13 @@ from bs4 import BeautifulSoup
 from pathvalidate import sanitize_filename
 import os
 from urllib.parse import urlsplit, unquote
+import argparse
 
 def parse_book_page(html_content):
     """Парсит страницу книги и возвращает данные о книге."""
     soup = BeautifulSoup(html_content, 'html.parser')
 
+    # Название и автор
     title_author_tag = soup.find('h1')
     title, author = None, None
     if title_author_tag:
@@ -15,9 +17,11 @@ def parse_book_page(html_content):
         title = title_author[0].strip()
         author = title_author[1].strip()
 
+    # Жанры
     genre_tags = soup.find('span', class_='d_book').find_all('a')
     genres = [tag.get_text().strip() for tag in genre_tags]
 
+    # Комментарии
     comments = []
     comment_tags = soup.find_all('div', class_='texts')
     for tag in comment_tags:
@@ -25,6 +29,7 @@ def parse_book_page(html_content):
         if comment:
             comments.append(comment.get_text().strip())
 
+    # Сборка всех данных в словарь
     return {
         'title': title,
         'author': author,
@@ -61,7 +66,14 @@ def download_image(url, folder='images/'):
     else:
         raise Exception(f'Ошибка при скачивании изображения: HTTP {response.status_code}')
 
-for book_id in range(1, 11):
+# Парсинг аргументов командной строки
+parser = argparse.ArgumentParser(description="Скачивание книг с сайта tululu.org")
+parser.add_argument('start_id', type=int, help="ID первой книги для скачивания")
+parser.add_argument('end_id', type=int, help="ID последней книги для скачивания")
+args = parser.parse_args()
+
+# Основной цикл
+for book_id in range(args.start_id, args.end_id + 1):
     try:
         book_url = f'http://tululu.org/b{book_id}/'
         response = requests.get(book_url)
