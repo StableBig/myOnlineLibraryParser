@@ -4,20 +4,33 @@ from pathvalidate import sanitize_filename
 import os
 from urllib.parse import urlsplit, unquote
 
-def get_book_title_and_author(book_id):
-    """Получение названия и автора книги по её ID."""
-    url = f'https://tululu.org/b{book_id}/'
-    response = requests.get(url)
-    soup = BeautifulSoup(response.text, 'html.parser')
+def parse_book_page(html_content):
+    """Парсит страницу книги и возвращает данные о книге."""
+    soup = BeautifulSoup(html_content, 'html.parser')
 
     title_author_tag = soup.find('h1')
+    title, author = None, None
     if title_author_tag:
         title_author = title_author_tag.get_text().split('::')
         title = title_author[0].strip()
         author = title_author[1].strip()
-        return title, author
-    else:
-        return None, None
+
+    genre_tags = soup.find('span', class_='d_book').find_all('a')
+    genres = [tag.get_text().strip() for tag in genre_tags]
+
+    comments = []
+    comment_tags = soup.find_all('div', class_='texts')
+    for tag in comment_tags:
+        comment = tag.find('span', class_='black')
+        if comment:
+            comments.append(comment.get_text().strip())
+
+    return {
+        'title': title,
+        'author': author,
+        'genres': genres,
+        'comments': comments
+    }
 
 def download_txt(url, filename, folder='books/'):
     """Скачивание текстового файла и сохранение его под определенным именем."""
@@ -48,49 +61,22 @@ def download_image(url, folder='images/'):
     else:
         raise Exception(f'Ошибка при скачивании изображения: HTTP {response.status_code}')
 
-def get_book_comments(book_id):
-    """Получение комментариев к книге по её ID."""
-    url = f'https://tululu.org/b{book_id}/'
-    response = requests.get(url)
-    soup = BeautifulSoup(response.text, 'html.parser')
-
-    comments = []
-    comment_tags = soup.find_all('div', class_='texts')
-    for tag in comment_tags:
-        comment = tag.find('span', class_='black')
-        if comment:
-            comments.append(comment.get_text().strip())
-
-    return comments
-
-
-def get_book_genre(book_id):
-    """Получение жанров книги по её ID."""
-    url = f'https://tululu.org/b{book_id}/'
-    response = requests.get(url)
-    soup = BeautifulSoup(response.text, 'html.parser')
-
-    genre_tags = soup.find('span', class_='d_book').find_all('a')
-    genres = [tag.get_text().strip() for tag in genre_tags]
-
-    return genres
-
-# Пример использования
 for book_id in range(1, 11):
     try:
-        title, author = get_book_title_and_author(book_id)
-        if title and author:
-            filename = f"{title} - {author}"
-            book_url = f'http://tululu.org/txt.php?id={book_id}'
-            cover_image_url = f'https://tululu.org/shots/{book_id}.jpg'  # Предполагаемый URL обложки
-            genres = get_book_genre(book_id)
+        book_url = f'http://tululu.org/b{book_id}/'
+        response = requests.get(book_url)
+        if response.status_code == 200:
+            book_data = parse_book_page(response.text)
 
-            txt_filepath = download_txt(book_url, filename)
-            img_filepath = download_image(cover_image_url)
-            comments = get_book_comments(book_id)
-            print(f"Книга '{title}' и её обложка скачаны: {txt_filepath}, {img_filepath}")
-            print(f"Жанры книги: {', '.join(genres)}")
-            print(f"Комментарии к книге: {comments}")
+            filename = f"{book_data['title']} - {book_data['author']}"
+            txt_url = f'http://tululu.org/txt.php?id={book_id}'
+            cover_url = f'https://tululu.org/shots/{book_id}.jpg'
+
+            txt_filepath = download_txt(txt_url, filename)
+            img_filepath = download_image(cover_url)
+            print(f"Книга '{book_data['title']}' и её обложка скачаны: {txt_filepath}, {img_filepath}")
+            print(f"Жанры книги: {', '.join(book_data['genres'])}")
+            print(f"Комментарии к книге: {book_data['comments']}")
         else:
             print(f"Книга с ID {book_id} не найдена или ошибка в её данных.")
     except Exception as e:
