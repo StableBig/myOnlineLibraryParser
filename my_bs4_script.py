@@ -48,6 +48,25 @@ def download_image(url, folder='images/'):
     else:
         raise Exception(f'Ошибка при скачивании изображения: HTTP {response.status_code}')
 
+
+def get_book_comments(book_id):
+    """Получение комментариев к книге по её ID."""
+    url = f'https://tululu.org/b{book_id}/'
+    response = requests.get(url)
+    soup = BeautifulSoup(response.text, 'html.parser')
+
+    comments = []
+    comment_tags = soup.find_all('div', class_='texts')
+
+    for tag in comment_tags:
+        comment = tag.find('span', class_='black')
+        if comment:
+            comments.append(comment.get_text().strip())
+
+    return comments
+
+
+# Пример использования
 for book_id in range(1, 11):
     try:
         title, author = get_book_title_and_author(book_id)
@@ -58,7 +77,9 @@ for book_id in range(1, 11):
 
             txt_filepath = download_txt(book_url, filename)
             img_filepath = download_image(cover_image_url)
+            comments = get_book_comments(book_id)
             print(f"Книга '{title}' и её обложка скачаны: {txt_filepath}, {img_filepath}")
+            print(f"Комментарии к книге: {comments}")
         else:
             print(f"Книга с ID {book_id} не найдена или ошибка в её данных.")
     except Exception as e:
