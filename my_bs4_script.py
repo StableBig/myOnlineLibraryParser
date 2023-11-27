@@ -32,17 +32,16 @@ def download_txt(url, filename, folder='books/'):
     else:
         raise Exception(f'Ошибка при скачивании файла: HTTP {response.status_code}')
 
+# Пример использования
 for book_id in range(1, 11):
     try:
         title, author = get_book_title_and_author(book_id)
         if title and author:
-            print(f"Название книги: {title}, Автор: {author}")
-
             filename = f"{title} - {author}"
             book_url = f'http://tululu.org/txt.php?id={book_id}'
 
             filepath = download_txt(book_url, filename)
-            print(f"Книга скачана и сохранена в: {filepath}")
+            print(f"Книга '{title}' скачана и сохранена в: {filepath}")
         else:
             print(f"Книга с ID {book_id} не найдена или ошибка в её данных.")
     except Exception as e:
