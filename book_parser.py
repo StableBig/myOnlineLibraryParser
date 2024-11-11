@@ -2,7 +2,7 @@ import requests
 from bs4 import BeautifulSoup
 from pathvalidate import sanitize_filename
 import os
-from urllib.parse import urlsplit, unquote
+from urllib.parse import urlsplit, unquote, urljoin
 import argparse
 import time
 import sys
@@ -14,13 +14,14 @@ def check_for_redirect(response):
         raise requests.HTTPError("Redirected to the main page, resource not found.")
 
 
-def parse_book_page(html_content):
+def parse_book_page(html_content, base_url):
     """Парсит страницу книги и возвращает данные о книге."""
     soup = BeautifulSoup(html_content, 'html.parser')
 
     title_author = None
     genres = []
     comments = []
+    cover_url = None
 
     try:
         title_author_tag = soup.find('h1')
@@ -47,11 +48,19 @@ def parse_book_page(html_content):
     except AttributeError as e:
         print(f"Ошибка при извлечении комментариев: {e}", file=sys.stderr)
 
+    try:
+        cover_tag = soup.find('div', class_='bookimage').find('img')
+        if cover_tag:
+            cover_url = urljoin(base_url, cover_tag['src'])
+    except (AttributeError, KeyError) as e:
+        print(f"Ошибка при извлечении обложки: {e}", file=sys.stderr)
+
     return {
         'title': title,
         'author': author,
         'genres': genres,
-        'comments': comments
+        'comments': comments,
+        'cover_url': cover_url
     }
 
 
@@ -124,11 +133,15 @@ def main():
                     print(f"Ошибка соединения при доступе к книге с ID {book_id}: {e}. Повтор через 5 секунд...", file=sys.stderr)
                     time.sleep(5)
 
-            book_details = parse_book_page(response.text)
+            book_details = parse_book_page(response.text, book_url)
             filename = f"{book_details['title']} - {book_details['author']}"
             txt_filepath = download_txt(book_id, filename)
-            cover_url = f'https://tululu.org/shots/{book_id}.jpg'
-            img_filepath = download_image(cover_url)
+
+            # Скачивание обложки с учетом относительных путей
+            if book_details['cover_url']:
+                img_filepath = download_image(book_details['cover_url'])
+            else:
+                img_filepath = None
 
             if txt_filepath and img_filepath:
                 print(f"Книга '{book_details['title']}' и её обложка скачаны: {txt_filepath}, {img_filepath}")
