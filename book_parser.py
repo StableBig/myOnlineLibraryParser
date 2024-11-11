@@ -8,6 +8,12 @@ import time
 import sys
 
 
+def check_for_redirect(response):
+    """Проверяет ответ на редирект и выбрасывает исключение при необходимости."""
+    if response.url == 'http://tululu.org/':
+        raise requests.HTTPError("Redirected to the main page, resource not found.")
+
+
 def parse_book_page(html_content):
     """Парсит страницу книги и возвращает данные о книге."""
     soup = BeautifulSoup(html_content, 'html.parser')
@@ -58,6 +64,7 @@ def download_txt(url, filename, folder='books/'):
     while True:
         try:
             response = requests.get(url)
+            check_for_redirect(response)
             response.raise_for_status()
             with open(file_path, 'wb') as file:
                 file.write(response.content)
@@ -80,6 +87,7 @@ def download_image(url, folder='images/'):
     while True:
         try:
             response = requests.get(url)
+            check_for_redirect(response)
             response.raise_for_status()
             with open(file_path, 'wb') as file:
                 file.write(response.content)
@@ -104,6 +112,7 @@ def main():
             while True:
                 try:
                     response = requests.get(book_url)
+                    check_for_redirect(response)
                     response.raise_for_status()
                     break
                 except requests.exceptions.HTTPError as e:
