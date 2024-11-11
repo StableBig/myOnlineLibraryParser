@@ -4,6 +4,8 @@ from pathvalidate import sanitize_filename
 import os
 from urllib.parse import urlsplit, unquote
 import argparse
+import time
+import sys
 
 
 def parse_book_page(html_content):
@@ -21,14 +23,14 @@ def parse_book_page(html_content):
             title = title_author[0].strip()
             author = title_author[1].strip() if len(title_author) > 1 else "Unknown Author"
     except (AttributeError, IndexError) as e:
-        print(f"Ошибка при извлечении названия или автора: {e}")
+        print(f"Ошибка при извлечении названия или автора: {e}", file=sys.stderr)
         title, author = "Unknown Title", "Unknown Author"
 
     try:
         genre_tags = soup.find('span', class_='d_book').find_all('a')
         genres = [tag.get_text().strip() for tag in genre_tags]
     except AttributeError as e:
-        print(f"Ошибка при извлечении жанров: {e}")
+        print(f"Ошибка при извлечении жанров: {e}", file=sys.stderr)
 
     try:
         comment_tags = soup.find_all('div', class_='texts')
@@ -37,7 +39,7 @@ def parse_book_page(html_content):
             if comment:
                 comments.append(comment.get_text().strip())
     except AttributeError as e:
-        print(f"Ошибка при извлечении комментариев: {e}")
+        print(f"Ошибка при извлечении комментариев: {e}", file=sys.stderr)
 
     return {
         'title': title,
@@ -53,21 +55,19 @@ def download_txt(url, filename, folder='books/'):
     os.makedirs(folder, exist_ok=True)
     file_path = os.path.join(folder, safe_filename)
 
-    try:
-        response = requests.get(url)
-        response.raise_for_status()
-    except requests.RequestException as e:
-        print(f"Ошибка при скачивании файла {url}: {e}")
-        return None
-
-    try:
-        with open(file_path, 'wb') as file:
-            file.write(response.content)
-    except IOError as e:
-        print(f"Ошибка при сохранении файла {file_path}: {e}")
-        return None
-
-    return file_path
+    while True:
+        try:
+            response = requests.get(url)
+            response.raise_for_status()
+            with open(file_path, 'wb') as file:
+                file.write(response.content)
+            return file_path
+        except requests.exceptions.HTTPError as e:
+            print(f"HTTP ошибка при скачивании {url}: {e}", file=sys.stderr)
+            return None
+        except requests.exceptions.ConnectionError as e:
+            print(f"Ошибка соединения при скачивании {url}: {e}. Повтор через 5 секунд...", file=sys.stderr)
+            time.sleep(5)
 
 
 def download_image(url, folder='images/'):
@@ -77,21 +77,19 @@ def download_image(url, folder='images/'):
     os.makedirs(folder, exist_ok=True)
     file_path = os.path.join(folder, safe_filename)
 
-    try:
-        response = requests.get(url)
-        response.raise_for_status()
-    except requests.RequestException as e:
-        print(f"Ошибка при скачивании изображения {url}: {e}")
-        return None
-
-    try:
-        with open(file_path, 'wb') as file:
-            file.write(response.content)
-    except IOError as e:
-        print(f"Ошибка при сохранении изображения {file_path}: {e}")
-        return None
-
-    return file_path
+    while True:
+        try:
+            response = requests.get(url)
+            response.raise_for_status()
+            with open(file_path, 'wb') as file:
+                file.write(response.content)
+            return file_path
+        except requests.exceptions.HTTPError as e:
+            print(f"HTTP ошибка при скачивании изображения {url}: {e}", file=sys.stderr)
+            return None
+        except requests.exceptions.ConnectionError as e:
+            print(f"Ошибка соединения при скачивании изображения {url}: {e}. Повтор через 5 секунд...", file=sys.stderr)
+            time.sleep(5)
 
 
 def main():
@@ -103,8 +101,17 @@ def main():
     for book_id in range(args.start_id, args.end_id + 1):
         try:
             book_url = f'http://tululu.org/b{book_id}/'
-            response = requests.get(book_url)
-            response.raise_for_status()
+            while True:
+                try:
+                    response = requests.get(book_url)
+                    response.raise_for_status()
+                    break
+                except requests.exceptions.HTTPError as e:
+                    print(f"HTTP ошибка при обработке книги с ID {book_id}: {e}", file=sys.stderr)
+                    break
+                except requests.exceptions.ConnectionError as e:
+                    print(f"Ошибка соединения при доступе к книге с ID {book_id}: {e}. Повтор через 5 секунд...", file=sys.stderr)
+                    time.sleep(5)
 
             book_data = parse_book_page(response.text)
             filename = f"{book_data['title']} - {book_data['author']}"
@@ -118,12 +125,8 @@ def main():
                 print(f"Жанры книги: {', '.join(book_data['genres'])}")
                 print(f"Комментарии к книге: {book_data['comments']}")
 
-        except requests.HTTPError as e:
-            print(f"Ошибка HTTP при обработке книги с ID {book_id}: {e}")
         except requests.RequestException as e:
-            print(f"Ошибка при запросе данных книги с ID {book_id}: {e}")
-        except Exception as e:
-            print(f"Неожиданная ошибка с книгой ID {book_id}: {e}")
+            print(f"Ошибка при запросе данных книги с ID {book_id}: {e}", file=sys.stderr)
 
 
 if __name__ == "__main__":
