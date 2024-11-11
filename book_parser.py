@@ -62,8 +62,13 @@ def download_image(url, folder='images/'):
     else:
         raise Exception(f'Ошибка при скачивании изображения: HTTP {response.status_code}')
 
-def main(start_id, end_id):
-    for book_id in range(start_id, end_id + 1):
+def main():
+    parser = argparse.ArgumentParser(description="Скачивание книг с сайта tululu.org")
+    parser.add_argument('start_id', type=int, help="ID первой книги для скачивания")
+    parser.add_argument('end_id', type=int, help="ID последней книги для скачивания")
+    args = parser.parse_args()
+
+    for book_id in range(args.start_id, args.end_id + 1):
         try:
             book_url = f'http://tululu.org/b{book_id}/'
             response = requests.get(book_url)
@@ -85,9 +90,4 @@ def main(start_id, end_id):
             print(f"Ошибка при обработке книги с ID {book_id}: {e}")
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Скачивание книг с сайта tululu.org")
-    parser.add_argument('start_id', type=int, help="ID первой книги для скачивания")
-    parser.add_argument('end_id', type=int, help="ID последней книги для скачивания")
-    args = parser.parse_args()
-
-    main(args.start_id, args.end_id)
+    main()
