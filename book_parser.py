@@ -71,21 +71,13 @@ def download_txt(book_id, filename, folder='books/'):
     file_path = os.path.join(folder, safe_filename)
 
     params = {'id': book_id}
+    response = requests.get('http://tululu.org/txt.php', params=params)
+    check_for_redirect(response)
+    response.raise_for_status()
 
-    while True:
-        try:
-            response = requests.get('http://tululu.org/txt.php', params=params)
-            check_for_redirect(response)
-            response.raise_for_status()
-            with open(file_path, 'wb') as file:
-                file.write(response.content)
-            return file_path
-        except requests.exceptions.HTTPError as e:
-            print(f"HTTP ошибка при скачивании текста для ID {book_id}: {e}", file=sys.stderr)
-            return None
-        except requests.exceptions.ConnectionError as e:
-            print(f"Ошибка соединения при скачивании текста для ID {book_id}: {e}. Повтор через 5 секунд...", file=sys.stderr)
-            time.sleep(5)
+    with open(file_path, 'wb') as file:
+        file.write(response.content)
+    return file_path
 
 
 def download_image(url, folder='images/'):
@@ -95,20 +87,13 @@ def download_image(url, folder='images/'):
     os.makedirs(folder, exist_ok=True)
     file_path = os.path.join(folder, safe_filename)
 
-    while True:
-        try:
-            response = requests.get(url)
-            check_for_redirect(response)
-            response.raise_for_status()
-            with open(file_path, 'wb') as file:
-                file.write(response.content)
-            return file_path
-        except requests.exceptions.HTTPError as e:
-            print(f"HTTP ошибка при скачивании изображения {url}: {e}", file=sys.stderr)
-            return None
-        except requests.exceptions.ConnectionError as e:
-            print(f"Ошибка соединения при скачивании изображения {url}: {e}. Повтор через 5 секунд...", file=sys.stderr)
-            time.sleep(5)
+    response = requests.get(url)
+    check_for_redirect(response)
+    response.raise_for_status()
+
+    with open(file_path, 'wb') as file:
+        file.write(response.content)
+    return file_path
 
 
 def main():
@@ -135,10 +120,27 @@ def main():
 
             book_details = parse_book_page(response.text, book_url)
             filename = f"{book_details['title']} - {book_details['author']}"
-            txt_filepath = download_txt(book_id, filename)
+
+            try:
+                txt_filepath = download_txt(book_id, filename)
+            except requests.exceptions.HTTPError as e:
+                print(f"HTTP ошибка при скачивании текста для ID {book_id}: {e}", file=sys.stderr)
+                txt_filepath = None
+            except requests.exceptions.ConnectionError as e:
+                print(f"Ошибка соединения при скачивании текста для ID {book_id}: {e}. Повтор через 5 секунд...", file=sys.stderr)
+                time.sleep(5)
+                txt_filepath = None
 
             if book_details['cover_url']:
-                img_filepath = download_image(book_details['cover_url'])
+                try:
+                    img_filepath = download_image(book_details['cover_url'])
+                except requests.exceptions.HTTPError as e:
+                    print(f"HTTP ошибка при скачивании изображения {book_details['cover_url']}: {e}", file=sys.stderr)
+                    img_filepath = None
+                except requests.exceptions.ConnectionError as e:
+                    print(f"Ошибка соединения при скачивании изображения {book_details['cover_url']}: {e}. Повтор через 5 секунд...", file=sys.stderr)
+                    time.sleep(5)
+                    img_filepath = None
             else:
                 img_filepath = None
 
