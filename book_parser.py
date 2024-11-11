@@ -137,7 +137,6 @@ def main():
             filename = f"{book_details['title']} - {book_details['author']}"
             txt_filepath = download_txt(book_id, filename)
 
-            # Скачивание обложки с учетом относительных путей
             if book_details['cover_url']:
                 img_filepath = download_image(book_details['cover_url'])
             else:
