@@ -113,17 +113,17 @@ def main():
                     print(f"Ошибка соединения при доступе к книге с ID {book_id}: {e}. Повтор через 5 секунд...", file=sys.stderr)
                     time.sleep(5)
 
-            book_data = parse_book_page(response.text)
-            filename = f"{book_data['title']} - {book_data['author']}"
+            book_details = parse_book_page(response.text)
+            filename = f"{book_details['title']} - {book_details['author']}"
             txt_url = f'http://tululu.org/txt.php?id={book_id}'
             cover_url = f'https://tululu.org/shots/{book_id}.jpg'
 
             txt_filepath = download_txt(txt_url, filename)
             img_filepath = download_image(cover_url)
             if txt_filepath and img_filepath:
-                print(f"Книга '{book_data['title']}' и её обложка скачаны: {txt_filepath}, {img_filepath}")
-                print(f"Жанры книги: {', '.join(book_data['genres'])}")
-                print(f"Комментарии к книге: {book_data['comments']}")
+                print(f"Книга '{book_details['title']}' и её обложка скачаны: {txt_filepath}, {img_filepath}")
+                print(f"Жанры книги: {', '.join(book_details['genres'])}")
+                print(f"Комментарии к книге: {book_details['comments']}")
 
         except requests.RequestException as e:
             print(f"Ошибка при запросе данных книги с ID {book_id}: {e}", file=sys.stderr)
