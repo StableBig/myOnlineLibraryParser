@@ -25,13 +25,13 @@
 
 Запустите скрипт с указанием начального и конечного ID книг:
 
-`python3 my_bs4_script.py [start_id] [end_id]`
+`python3 book_parser.py [start_id] [end_id]`
 
 
 где `[start_id]` и `[end_id]` — начальный и конечный ID книг, которые вы хотите скачать.
 
 Например:
 
-`python my_bs4_script.py 20 30`
+`python book_parser.py 20 30`
 
 Эта команда скачает книги с ID от 20 до 30.
