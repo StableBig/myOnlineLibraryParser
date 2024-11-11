@@ -55,25 +55,27 @@ def parse_book_page(html_content):
     }
 
 
-def download_txt(url, filename, folder='books/'):
+def download_txt(book_id, filename, folder='books/'):
     """Скачивание текстового файла и сохранение его под определенным именем."""
     safe_filename = sanitize_filename(filename) + '.txt'
     os.makedirs(folder, exist_ok=True)
     file_path = os.path.join(folder, safe_filename)
 
+    params = {'id': book_id}
+
     while True:
         try:
-            response = requests.get(url)
+            response = requests.get('http://tululu.org/txt.php', params=params)
             check_for_redirect(response)
             response.raise_for_status()
             with open(file_path, 'wb') as file:
                 file.write(response.content)
             return file_path
         except requests.exceptions.HTTPError as e:
-            print(f"HTTP ошибка при скачивании {url}: {e}", file=sys.stderr)
+            print(f"HTTP ошибка при скачивании текста для ID {book_id}: {e}", file=sys.stderr)
             return None
         except requests.exceptions.ConnectionError as e:
-            print(f"Ошибка соединения при скачивании {url}: {e}. Повтор через 5 секунд...", file=sys.stderr)
+            print(f"Ошибка соединения при скачивании текста для ID {book_id}: {e}. Повтор через 5 секунд...", file=sys.stderr)
             time.sleep(5)
 
 
@@ -124,11 +126,10 @@ def main():
 
             book_details = parse_book_page(response.text)
             filename = f"{book_details['title']} - {book_details['author']}"
-            txt_url = f'http://tululu.org/txt.php?id={book_id}'
+            txt_filepath = download_txt(book_id, filename)
             cover_url = f'https://tululu.org/shots/{book_id}.jpg'
-
-            txt_filepath = download_txt(txt_url, filename)
             img_filepath = download_image(cover_url)
+
             if txt_filepath and img_filepath:
                 print(f"Книга '{book_details['title']}' и её обложка скачаны: {txt_filepath}, {img_filepath}")
                 print(f"Жанры книги: {', '.join(book_details['genres'])}")
