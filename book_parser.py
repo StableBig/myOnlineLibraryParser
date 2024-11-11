@@ -10,22 +10,34 @@ def parse_book_page(html_content):
     """Парсит страницу книги и возвращает данные о книге."""
     soup = BeautifulSoup(html_content, 'html.parser')
 
-    title_author_tag = soup.find('h1')
-    title, author = None, None
-    if title_author_tag:
-        title_author = title_author_tag.get_text().split('::')
-        title = title_author[0].strip()
-        author = title_author[1].strip()
-
-    genre_tags = soup.find('span', class_='d_book').find_all('a')
-    genres = [tag.get_text().strip() for tag in genre_tags]
-
+    title_author = None
+    genres = []
     comments = []
-    comment_tags = soup.find_all('div', class_='texts')
-    for tag in comment_tags:
-        comment = tag.find('span', class_='black')
-        if comment:
-            comments.append(comment.get_text().strip())
+
+    try:
+        title_author_tag = soup.find('h1')
+        if title_author_tag:
+            title_author = title_author_tag.get_text().split('::')
+            title = title_author[0].strip()
+            author = title_author[1].strip() if len(title_author) > 1 else "Unknown Author"
+    except (AttributeError, IndexError) as e:
+        print(f"Ошибка при извлечении названия или автора: {e}")
+        title, author = "Unknown Title", "Unknown Author"
+
+    try:
+        genre_tags = soup.find('span', class_='d_book').find_all('a')
+        genres = [tag.get_text().strip() for tag in genre_tags]
+    except AttributeError as e:
+        print(f"Ошибка при извлечении жанров: {e}")
+
+    try:
+        comment_tags = soup.find_all('div', class_='texts')
+        for tag in comment_tags:
+            comment = tag.find('span', class_='black')
+            if comment:
+                comments.append(comment.get_text().strip())
+    except AttributeError as e:
+        print(f"Ошибка при извлечении комментариев: {e}")
 
     return {
         'title': title,
@@ -41,10 +53,20 @@ def download_txt(url, filename, folder='books/'):
     os.makedirs(folder, exist_ok=True)
     file_path = os.path.join(folder, safe_filename)
 
-    response = requests.get(url)
-    response.raise_for_status()
-    with open(file_path, 'wb') as file:
-        file.write(response.content)
+    try:
+        response = requests.get(url)
+        response.raise_for_status()
+    except requests.RequestException as e:
+        print(f"Ошибка при скачивании файла {url}: {e}")
+        return None
+
+    try:
+        with open(file_path, 'wb') as file:
+            file.write(response.content)
+    except IOError as e:
+        print(f"Ошибка при сохранении файла {file_path}: {e}")
+        return None
+
     return file_path
 
 
@@ -55,10 +77,20 @@ def download_image(url, folder='images/'):
     os.makedirs(folder, exist_ok=True)
     file_path = os.path.join(folder, safe_filename)
 
-    response = requests.get(url)
-    response.raise_for_status()
-    with open(file_path, 'wb') as file:
-        file.write(response.content)
+    try:
+        response = requests.get(url)
+        response.raise_for_status()
+    except requests.RequestException as e:
+        print(f"Ошибка при скачивании изображения {url}: {e}")
+        return None
+
+    try:
+        with open(file_path, 'wb') as file:
+            file.write(response.content)
+    except IOError as e:
+        print(f"Ошибка при сохранении изображения {file_path}: {e}")
+        return None
+
     return file_path
 
 
@@ -81,12 +113,15 @@ def main():
 
             txt_filepath = download_txt(txt_url, filename)
             img_filepath = download_image(cover_url)
-            print(f"Книга '{book_data['title']}' и её обложка скачаны: {txt_filepath}, {img_filepath}")
-            print(f"Жанры книги: {', '.join(book_data['genres'])}")
-            print(f"Комментарии к книге: {book_data['comments']}")
+            if txt_filepath and img_filepath:
+                print(f"Книга '{book_data['title']}' и её обложка скачаны: {txt_filepath}, {img_filepath}")
+                print(f"Жанры книги: {', '.join(book_data['genres'])}")
+                print(f"Комментарии к книге: {book_data['comments']}")
 
         except requests.HTTPError as e:
-            print(f"Ошибка при обработке книги с ID {book_id}: {e}")
+            print(f"Ошибка HTTP при обработке книги с ID {book_id}: {e}")
+        except requests.RequestException as e:
+            print(f"Ошибка при запросе данных книги с ID {book_id}: {e}")
         except Exception as e:
             print(f"Неожиданная ошибка с книгой ID {book_id}: {e}")
 
