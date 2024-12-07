@@ -8,23 +8,25 @@ def check_for_redirect(response):
         raise requests.HTTPError("Redirected to the main page, resource not found.")
 
 
-def get_first_book_link(category_url):
+def get_all_book_links_from_page(category_url):
     try:
         response = requests.get(category_url)
         response.raise_for_status()
 
         soup = BeautifulSoup(response.text, 'html.parser')
 
-        book_card = soup.find('div', class_='bookimage')
-        if not book_card:
-            raise ValueError("Не удалось найти карточку книги.")
+        book_cards = soup.find_all('div', class_='bookimage')
+        if not book_cards:
+            raise ValueError("Не удалось найти карточки книг.")
 
-        link_tag = book_card.find('a')
-        if not link_tag:
-            raise ValueError("Не удалось найти ссылку на книгу.")
+        book_links = []
+        for card in book_cards:
+            link_tag = card.find('a')
+            if link_tag:
+                book_link = urljoin(category_url, link_tag['href'])
+                book_links.append(book_link)
 
-        book_link = urljoin(category_url, link_tag['href'])
-        return book_link
+        return book_links
 
     except requests.RequestException as e:
         print(f"Ошибка при запросе страницы категории {category_url}: {e}")
@@ -34,9 +36,11 @@ def get_first_book_link(category_url):
 
 def main():
     category_url = 'http://tululu.org/l55/'
-    first_book_link = get_first_book_link(category_url)
-    if first_book_link:
-        print(f"Ссылка на первую книгу: {first_book_link}")
+    book_links = get_all_book_links_from_page(category_url)
+    if book_links:
+        print(f"Найдено {len(book_links)} ссылок на книги.")
+        for link in book_links:
+            print(link)
 
 
 if __name__ == "__main__":
