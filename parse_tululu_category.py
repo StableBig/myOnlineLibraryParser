@@ -34,12 +34,25 @@ def get_all_book_links_from_page(category_url):
         print(f"Ошибка при парсинге страницы: {e}")
 
 
+def get_all_book_links_from_all_pages(base_category_url, start_page=1, end_page=10):
+    all_book_links = []
+    for page_number in range(start_page, end_page + 1):
+        category_url = f'{base_category_url}{page_number}/'
+        print(f"Парсинг страницы: {category_url}")
+        book_links = get_all_book_links_from_page(category_url)
+        if book_links:
+            all_book_links.extend(book_links)
+
+    return all_book_links
+
+
 def main():
-    category_url = 'http://tululu.org/l55/'
-    book_links = get_all_book_links_from_page(category_url)
-    if book_links:
-        print(f"Найдено {len(book_links)} ссылок на книги.")
-        for link in book_links:
+    base_category_url = 'http://tululu.org/l55/'
+    all_book_links = get_all_book_links_from_all_pages(base_category_url, start_page=1, end_page=10)
+
+    if all_book_links:
+        print(f"Найдено {len(all_book_links)} ссылок на книги.")
+        for link in all_book_links:
             print(link)
 
 
