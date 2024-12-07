@@ -3,8 +3,8 @@ from bs4 import BeautifulSoup
 from urllib.parse import urljoin
 import os
 import json
-import time
 import sys
+import argparse
 from pathvalidate import sanitize_filename
 
 
@@ -24,7 +24,6 @@ def parse_book_page(html_content, base_url):
         title, author = "Unknown Title", "Unknown Author"
 
     genres = [genre.get_text(strip=True) for genre in soup.select('span.d_book a')]
-
     comments = [comment.get_text(strip=True) for comment in soup.select('div.texts span.black')]
 
     try:
@@ -90,8 +89,18 @@ def get_all_book_links_from_all_pages(base_category_url, start_page=1, end_page=
 
 
 def main():
+    parser = argparse.ArgumentParser(
+        description='Скачивание книг из категории "Научная фантастика" с сайта tululu.org'
+    )
+    parser.add_argument('--start_page', type=int, default=1, help='С какой страницы начинать скачивание книг')
+    parser.add_argument('--end_page', type=int, default=1, help='На какой странице остановить скачивание книг')
+    args = parser.parse_args()
+
+    start_page = args.start_page
+    end_page = args.end_page
+
     base_category_url = 'http://tululu.org/l55/'
-    book_links = get_all_book_links_from_all_pages(base_category_url, start_page=1, end_page=1)
+    book_links = get_all_book_links_from_all_pages(base_category_url, start_page=start_page, end_page=end_page)
 
     book_metadata = []
     for book_url in book_links:
@@ -122,7 +131,7 @@ def main():
             book_details['img_path'] = img_filepath
             book_metadata.append(book_details)
 
-            print(f"Книга '{book_details['title']}' скачана.")
+            print(f"Книга '{book_details['title']}' скачана. Ссылка: {book_url}")
         except requests.RequestException as e:
             print(f"Ошибка при обработке книги {book_url}: {e}", file=sys.stderr)
 
