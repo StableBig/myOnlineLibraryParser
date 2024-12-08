@@ -9,8 +9,10 @@ from pathvalidate import sanitize_filename
 
 
 def check_for_redirect(response):
-    if response.url == 'http://tululu.org/':
-        raise requests.HTTPError("Redirected to the main page, resource not found.")
+    if len(response.history) > 0:  # Проверяем историю запросов
+        final_url = response.url.rstrip('/')
+        if final_url == 'http://tululu.org':
+            raise requests.HTTPError(f"Redirected to the main page: {final_url}")
 
 
 def parse_book_page(html_content, base_url):
@@ -79,7 +81,9 @@ def get_all_book_links_from_all_pages(base_category_url, start_page=1, end_page=
         print(f"Парсинг страницы: {category_url}")
         try:
             response = requests.get(category_url)
+            check_for_redirect(response)
             response.raise_for_status()
+
             soup = BeautifulSoup(response.text, 'html.parser')
             book_cards = soup.select('div.bookimage a')
             for link_tag in book_cards:
@@ -102,8 +106,7 @@ def main():
     args = parser.parse_args()
 
     base_category_url = 'http://tululu.org/l55/'
-    book_links = get_all_book_links_from_all_pages(base_category_url, start_page=args.start_page,
-                                                   end_page=args.end_page)
+    book_links = get_all_book_links_from_all_pages(base_category_url, start_page=args.start_page, end_page=args.end_page)
 
     book_metadata = []
     for book_url in book_links:
