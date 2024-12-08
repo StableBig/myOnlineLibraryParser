@@ -9,21 +9,6 @@ from pathvalidate import sanitize_filename
 import time
 
 
-def make_request_with_retries(url, params=None, max_retries=5, backoff_factor=1):
-    for attempt in range(1, max_retries + 1):
-        try:
-            response = requests.get(url, params=params)
-            response.raise_for_status()
-            return response
-        except (requests.exceptions.ConnectionError, requests.exceptions.Timeout) as e:
-            print(f"Попытка {attempt} не удалась: {e}. Пауза перед следующей попыткой.")
-            time.sleep(backoff_factor * 2 ** (attempt - 1))
-        except requests.exceptions.RequestException as e:
-            print(f"Ошибка при запросе: {e}")
-            raise
-    raise requests.exceptions.ConnectionError(f"Не удалось подключиться к {url} после {max_retries} попыток.")
-
-
 def check_for_redirect(response):
     if len(response.history) > 0:
         final_url = response.url.rstrip('/')
@@ -67,8 +52,9 @@ def download_txt(book_id, filename, folder):
     file_path = os.path.join(folder_path, safe_filename)
 
     params = {'id': book_id}
-    response = make_request_with_retries('http://tululu.org/txt.php', params=params)
+    response = requests.get('http://tululu.org/txt.php', params=params)
     check_for_redirect(response)
+    response.raise_for_status()
 
     with open(file_path, 'wb') as file:
         file.write(response.content)
@@ -80,8 +66,9 @@ def download_image(url, folder):
     os.makedirs(folder_path, exist_ok=True)
     file_path = os.path.join(folder_path, os.path.basename(url))
 
-    response = make_request_with_retries(url)
+    response = requests.get(url)
     check_for_redirect(response)
+    response.raise_for_status()
 
     with open(file_path, 'wb') as file:
         file.write(response.content)
@@ -94,8 +81,9 @@ def get_all_book_links_from_all_pages(base_category_url, start_page=1, end_page=
         category_url = f'{base_category_url}{page_number}/'
         print(f"Парсинг страницы: {category_url}")
         try:
-            response = make_request_with_retries(category_url)
+            response = requests.get(category_url)
             check_for_redirect(response)
+            response.raise_for_status()
 
             soup = BeautifulSoup(response.text, 'html.parser')
             book_cards = soup.select('div.bookimage a')
@@ -108,9 +96,7 @@ def get_all_book_links_from_all_pages(base_category_url, start_page=1, end_page=
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description='Скачивание книг из категории "Научная фантастика" с сайта tululu.org'
-    )
+    parser = argparse.ArgumentParser(description='Скачивание книг с сайта tululu.org')
     parser.add_argument('--start_page', type=int, default=1, help='С какой страницы начинать скачивание книг')
     parser.add_argument('--end_page', type=int, default=1, help='На какой странице остановить скачивание книг')
     parser.add_argument('--dest_folder', type=str, default='.', help='Путь к каталогу для сохранения файлов')
@@ -121,36 +107,44 @@ def main():
     base_category_url = 'http://tululu.org/l55/'
     book_links = get_all_book_links_from_all_pages(base_category_url, start_page=args.start_page, end_page=args.end_page)
 
-    book_metadata = []
+    books = []
     for book_url in book_links:
         try:
-            response = make_request_with_retries(book_url)
+            response = requests.get(book_url)
             check_for_redirect(response)
+            response.raise_for_status()
 
             book_details = parse_book_page(response.text, book_url)
             book_id = book_url.split('/')[-2].replace('b', '')
             filename = f"{book_details['title']} - {book_details['author']}"
 
             if not args.skip_txt:
-                txt_filepath = download_txt(book_id, filename, args.dest_folder)
+                try:
+                    txt_filepath = download_txt(book_id, filename, args.dest_folder)
+                except requests.exceptions.RequestException as e:
+                    print(f"Ошибка при скачивании текста для книги {filename}: {e}", file=sys.stderr)
+                    continue
             else:
                 txt_filepath = None
 
             if book_details['cover_url'] and not args.skip_imgs:
-                img_filepath = download_image(book_details['cover_url'], args.dest_folder)
+                try:
+                    img_filepath = download_image(book_details['cover_url'], args.dest_folder)
+                except requests.exceptions.RequestException as e:
+                    print(f"Ошибка при скачивании обложки для книги {filename}: {e}", file=sys.stderr)
             else:
                 img_filepath = None
 
             book_details['txt_path'] = txt_filepath
             book_details['img_path'] = img_filepath
-            book_metadata.append(book_details)
+            books.append(book_details)
 
             print(f"Книга '{book_details['title']}' скачана.")
         except requests.RequestException as e:
             print(f"Ошибка при обработке книги {book_url}: {e}", file=sys.stderr)
 
     with open(os.path.join(args.dest_folder, 'books.json'), 'w', encoding='utf-8') as file:
-        json.dump(book_metadata, file, ensure_ascii=False, indent=4)
+        json.dump(books, file, ensure_ascii=False, indent=4)
     print(f"Информация о книгах сохранена в books.json")
 
 
